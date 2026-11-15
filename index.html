@@ -1,0 +1,478 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#14161f">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>NapTime</title>
+<style>
+:root{--bg:#14161f;--card:#1e2130;--line:#2c3045;--tx:#e8e6f0;--mut:#9a98ad;--acc:#f0b86e;--ok:#7fc8a9;--warn:#e88a8a;--blue:#8fa8e8}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--tx);font:16px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;padding-bottom:84px}
+header{padding:16px 16px 4px;display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+header h1{font-size:20px;margin:0;color:var(--acc)}
+header small{color:var(--mut)}
+main{padding:8px 16px;max-width:680px;margin:0 auto}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px 16px;margin:12px 0}
+.card h2{font-size:17px;margin:0 0 8px}
+.card h3{font-size:15px;margin:12px 0 4px;color:var(--acc)}
+.mut{color:var(--mut);font-size:14px}
+.tag{display:inline-block;font-size:12px;padding:2px 8px;border-radius:99px;background:var(--line);color:var(--acc);margin-bottom:6px}
+.warn{border-color:var(--warn)}.warn h2{color:var(--warn)}
+.okc{border-color:var(--ok)}.okc h2{color:var(--ok)}
+ul{padding-left:20px;margin:6px 0}li{margin:4px 0}
+label.chk{display:flex;gap:10px;align-items:flex-start;padding:8px 0;border-bottom:1px solid var(--line);cursor:pointer}
+label.chk:last-child{border-bottom:0}
+label.chk input{width:22px;height:22px;flex:none;margin-top:1px;accent-color:var(--ok)}
+label.chk input:checked+span{color:var(--mut);text-decoration:line-through}
+button,.btn{background:var(--acc);color:#1a1a1a;border:0;border-radius:10px;padding:12px 16px;font:600 16px system-ui,sans-serif;cursor:pointer;min-height:46px}
+button.sec{background:var(--line);color:var(--tx)}
+button.bad{background:var(--warn)}
+.row{display:flex;gap:8px;flex-wrap:wrap}.row>*{flex:1 1 140px}
+.f{display:block;margin:10px 0}
+.f span{display:block;font-size:14px;color:var(--mut);margin-bottom:4px}
+input,select,textarea{width:100%;background:var(--bg);color:var(--tx);border:1px solid var(--line);border-radius:10px;padding:10px;font:16px system-ui,sans-serif;min-height:44px}
+textarea{min-height:70px}
+nav{position:fixed;bottom:0;left:0;right:0;background:#181a25;border-top:1px solid var(--line);display:flex;padding-bottom:env(safe-area-inset-bottom)}
+nav button{flex:1;background:none;color:var(--mut);border-radius:0;padding:8px 2px;font-size:11px;font-weight:500;display:flex;flex-direction:column;align-items:center;gap:2px;min-height:60px}
+nav button b{font-size:20px;line-height:1}
+nav button.on{color:var(--acc)}
+.big{font-size:56px;font-weight:700;text-align:center;font-variant-numeric:tabular-nums;margin:8px 0}
+.prog{height:8px;background:var(--line);border-radius:9px;overflow:hidden;margin:8px 0}
+.prog i{display:block;height:100%;background:var(--acc)}
+table{width:100%;border-collapse:collapse;font-size:14px}
+td,th{border-bottom:1px solid var(--line);padding:6px 4px;text-align:left;vertical-align:top}
+details{border-bottom:1px solid var(--line);padding:8px 0}
+summary{cursor:pointer;font-weight:600}
+svg text{fill:var(--mut);font-size:10px}
+.stat{display:flex;gap:8px}.stat div{flex:1;background:var(--bg);border-radius:10px;padding:10px;text-align:center}
+.stat b{display:block;font-size:22px;color:var(--acc)}
+</style>
+</head>
+<body>
+<header><h1>🌙 NapTime</h1><small id="hdr"></small></header>
+<main id="app"></main>
+<nav id="nav"></nav>
+<script>
+'use strict';
+// ---------- utilidades ----------
+const KEY = 'naptime.v1';
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const pad = n => String(n).padStart(2, '0');
+const iso = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+const today = () => iso(new Date());
+const dayNum = s => { const [y,m,d] = s.split('-').map(Number); return Date.UTC(y,m-1,d)/864e5; };
+const addDays = (s, n) => { const d = new Date(dayNum(s)*864e5 + n*864e5); return `${d.getUTCFullYear()}-${pad(d.getUTCMonth()+1)}-${pad(d.getUTCDate())}`; };
+const toMin = t => { if (!t) return null; const [h,m] = t.split(':').map(Number); return h*60+m; };
+const fromMin = m => { m = ((m % 1440) + 1440) % 1440; return `${pad(Math.floor(m/60))}:${pad(m%60)}`; };
+const avg = a => a.length ? a.reduce((x,y)=>x+y,0)/a.length : null;
+const fmtDate = s => new Date(dayNum(s)*864e5).toLocaleDateString('es-ES',{weekday:'short',day:'numeric',month:'short',timeZone:'UTC'});
+
+const blank = () => ({name:'', startDate:'', wakeTime:'07:00', branch:null, offset:0, repeats:0, pausedDates:[], logs:{}, checks:{}, prep:{}});
+function load(){ try { return Object.assign(blank(), JSON.parse(localStorage.getItem(KEY)) || {}); } catch { return blank(); } }
+let S = load();
+function save(){ try { localStorage.setItem(KEY, JSON.stringify(S)); } catch { alert('No se pudo guardar. Exporta una copia desde Ajustes.'); } }
+
+// Día del programa. 0 = preparación. Los días en pausa no cuentan; si hoy está en pausa se congela el día anterior.
+function programDay(st, t){
+  if (!st.startDate) return null;
+  const raw = dayNum(t) - dayNum(st.startDate) + 1;
+  if (raw < 1) return 0;
+  const pausedBefore = st.pausedDates.filter(d => d >= st.startDate && d < t).length;
+  const todayPaused = st.pausedDates.includes(t) ? 1 : 0;
+  return Math.max(1, raw - pausedBefore - todayPaused - (st.offset||0));
+}
+
+// ---------- contenido del programa ----------
+const SAFE = ['Boca arriba siempre, en colchón firme con sábana ajustable.','Cuna vacía: sin almohadas, peluches, chichoneras ni mantas (usad saco de dormir).','Cuna en vuestra habitación al menos hasta los 6 meses.','Si intenta darse la vuelta, dejad el arrullo con brazos atrapados: saco con brazos libres.','Nada de dormir en sofá o sillón con ella en brazos.'];
+
+const PREP = [
+  ['ped','Comentar el plan con el pediatra (peso, salud, reflujo) y tener su visto bueno.'],
+  ['dark','Habitación a oscuras total para la noche y siestas (persianas, cinta en LEDs).'],
+  ['noise','Ruido blanco continuo, volumen bajo (como una ducha), toda la noche.'],
+  ['temp','Temperatura 20-22 °C y saco de dormir adecuado (TOG según temperatura).'],
+  ['crib','Cuna segura y preparada según las normas de sueño seguro.'],
+  ['roles','Acordar quién hace qué: quien no da el pecho lidera los reasentamientos (no huele a leche).'],
+  ['wake','Elegir hora fija de despertar (ponedla en Ajustes).'],
+  ['agree','Comprometeros los dos con 2 semanas de constancia antes de juzgar resultados.'],
+];
+
+const W2_LADDER = 'Escalera de ayuda (1-2 min por escalón, sube solo si el llanto va a más): esperar en silencio → voz suave/“shhh” → mano quieta en el pecho → palmaditas o mecer la cuna → cogerla solo hasta que se calme (no hasta que se duerma) y volver a dejarla.';
+const FEED_RULE = 'Despertar nocturno: si han pasado ≥3 h desde la última toma → toma tranquila, a oscuras, sin hablar, y a la cuna despierta. Si han pasado <3 h → reasentar sin pecho (mejor el otro progenitor).';
+const INTERVALS = [[3,5,10],[5,10,12],[10,12,15]];
+
+function weekOf(d){ return d===0 ? 0 : Math.min(5, Math.ceil(d/7)); }
+
+function getDay(d, branch){
+  if (d === 0) return {phase:'Día 0 · Preparación', title:'Preparad el terreno', steps:PREP.map(p=>p[1]), expect:'Aún no cambia nada. Cuanto mejor esté el entorno, más fácil será todo lo demás.', night:'Seguid como siempre. Revisad la lista de preparación.', prep:true};
+  if (d > 35) return {phase:'Programa completado', title:'Mantenimiento', steps:[
+    'Mantened la rutina de noche siempre igual, también de viaje.',
+    'Si enferma o le ponen vacunas: consolad todo lo necesario y volved al plan en cuanto esté bien (48 h sin síntomas).',
+    'Hacia los 5-7 meses pasará a 3 siestas: alargad las ventanas de vigilia 15 min cada vez.',
+    'Si un hábito antiguo vuelve (dormirse al pecho), repetid 3-4 noches de la semana 2: se recupera rápido.'],
+    expect:'Habrá noches malas puntuales (dientes, saltos de desarrollo). No significa que se haya perdido lo aprendido.', night:'Rutina → cuna despierta → buenas noches → salir.'};
+
+  const R = 'Rutina de 20-30 min, siempre igual: baño (o lavado rápido) → pijama y saco → toma con luz encendida → cuento o canción → cuna.';
+  if (d <= 3) return {phase:'Semana 1 · Cimientos', title:`Día ${d}: observar y registrar`, steps:[
+    `Despertarla a las ${S.wakeTime} (±30 min) y abrir persianas: la luz de la mañana fija su reloj.`,
+    'Respetar ventanas de vigilia de 1h30-2h15 (usa la calculadora de abajo).',
+    'Seguir durmiéndola como siempre: estos días solo se observa.',
+    'Anotar las señales de sueño que veis: mirada perdida, frotarse ojos, bostezos, quejidos.',
+    'Registrar la noche y las siestas en la pestaña Registro.'],
+    expect:'Nada cambia todavía. Estos datos son vuestra línea base para ver el progreso.',
+    night:'Como siempre. Apuntad hora de acostarla, cuánto tarda, despertares y tomas.'};
+  if (d <= 7) return {phase:'Semana 1 · Cimientos', title: d===4 ? 'Día 4: empieza la rutina y se separa comer de dormir' : `Día ${d}: rutina y comer-jugar-dormir`, steps:[
+    R,
+    'La toma va al principio de la rutina, con luz. Si se duerme mamando, despertadla suavemente (cambiar de pecho, hablarle, cambiar pañal).',
+    'De día: comer → jugar → dormir. La toma al despertar de la siesta, no para dormirla.',
+    'Tomas diurnas completas y tranquilas, sin distracciones: menos hambre de noche.',
+    'Practicar “somnolienta pero despierta” al acostarla de noche y en la 1.ª siesta: dejadla en la cuna y ayudad ahí (mano, “shhh”). Si en 10-15 min no lo consigue, dormidla como siempre sin culpa.',
+    'De noche, al oírla: esperar 2-3 min antes de entrar (usa el temporizador). Muchos ruidos son sueño activo, no despertares.',
+    ...(d >= 6 ? ['Intentad que la 1.ª siesta de la mañana empiece en la cuna.'] : [])],
+    expect:'De noche apenas cambia. Puede que se duerma algo más rápido con la rutina. Es normal que proteste al quitarle el pecho de la rutina.',
+    night:'Rutina completa. Intento de dejarla despierta. Pausa de 2-3 min antes de acudir en los despertares.'};
+
+  const cp = d === 14 ? ['Esta noche registrad bien: mañana toca el punto de control.'] : [];
+  if (d <= 14) {
+    const contact = d <= 10 ? 'Usad toda la escalera si hace falta.' : d <= 12 ? 'Quitad contacto: como mucho mano quieta y voz. Coger solo si el llanto va a más.' : 'Solo voz y presencia desde la silla. Sin tocar salvo llanto intenso.';
+    return {phase:'Semana 2 · Dormirse en la cuna, acompañada', title:`Día ${d}: ${d===8?'primera noche dormida en la cuna':d<=10?'constancia':d<=12?'menos contacto':'solo presencia'}`, steps:[
+      R,
+      'Acostarla DESPIERTA. Sentaos en una silla pegada a la cuna.',
+      W2_LADDER,
+      contact,
+      'Nunca el pecho para dormirla (ni a la hora de acostar ni en despertares que no toquen toma).',
+      FEED_RULE,
+      '1.ª siesta en la cuna con el mismo método (máx. 30 min de intento). El resto de siestas como sea (porteo, carro, brazos) para que no acumule cansancio.',
+      ...cp],
+      expect: d===8 ? 'Primera noche: puede tardar 30-60 min y llorar acompañada. Estáis a su lado; es lo esperado.' : d<=10 ? 'Las noches 2-4 suelen ser las más duras. La constancia ahora es lo que más cuenta.' : 'Hacia el día 12-14 debería dormirse en la cuna en menos de 20-30 min con vuestra presencia.',
+      night:`Despierta a la cuna, silla al lado. ${contact}`};
+  }
+
+  if (d <= 21) {
+    const n = d - 14;
+    if (branch === 'B') {
+      const iv = INTERVALS[Math.min(n,3)-1];
+      return {phase:'Semana 3 · Rama B: visitas a intervalos', title:`Día ${d}: noche ${n} de intervalos (${iv.join(' - ')} min)`, steps:[
+        R + ' Hacedla tranquila y cariñosa.',
+        'Dejarla despierta, decir siempre la misma frase (“buenas noches, te quiero, a dormir”) y salir.',
+        `Si llora, esperad los intervalos de hoy: ${iv.join(', ')} min (y luego ${iv[2]} min). Usad el temporizador.`,
+        'Visitas de 1-2 min: voz y mano, sin coger, sin encender luz. Después, salir aunque siga llorando.',
+        'Si el llanto pasa a gritos desconsolados más de 15 min seguidos, cogedla hasta que se calme y volved a dejarla. No es un fracaso.',
+        FEED_RULE + ' Si no toca toma, mismos intervalos empezando por el primero.',
+        'Siestas: mismos intervalos, máximo 30 min de intento. Si no se duerme, siesta de rescate y a por la siguiente.'],
+        expect: n===1 ? 'El llanto puede durar 20-45 min la primera noche. Es lo esperado.' : n<=3 ? 'Las noches 2-3 suelen ser el pico, a veces peores que la primera. Mantened el plan.' : n<=6 ? 'Mejora clara: cada vez menos llanto y se duerme antes.' : 'Puede haber una recaída puntual hacia la noche 5-7. Es normal: mantened el plan.',
+        night:`Intervalos ${iv.join(' - ')} min. Visitas cortas, sin coger.`, timer:iv};
+    }
+    const pos = n<=3 ? 'a mitad de camino entre la cuna y la puerta' : n<=6 ? 'junto a la puerta' : 'fuera de la habitación; voz desde el pasillo si hace falta';
+    return {phase:'Semana 3 · Rama A: retirada de la silla', title:`Día ${d}: silla ${n<=3?'a mitad de habitación':n<=6?'en la puerta':'fuera'}`, steps:[
+      R,
+      'Acostarla despierta y sentaos con la silla ' + pos + '.',
+      'Si llora: primero voz desde la silla. Si va a más, acercaos, mano o palmaditas breves, y volved a la silla.',
+      'Si una noche se descontrola (más de 5 min de llanto intenso), acercad la silla un poco solo esa noche. No retrocedáis más.',
+      'Los despertares nocturnos se reasientan también desde la posición de la silla de hoy.',
+      FEED_RULE,
+      '1.ª y 2.ª siesta en la cuna con el mismo método; la última puede ser de rescate.'],
+      expect:'Más lento que con intervalos, pero con poco llanto. Debería seguir durmiéndose en menos de 20-30 min.',
+      night:`Silla ${pos}.`};
+  }
+
+  if (d <= 28) {
+    const how = branch==='B' ? 'intervalos (empezando por 10 min)' : 'voz desde fuera, entrando solo si el llanto va a más';
+    return {phase:'Semana 4 · Noches y siestas', title:`Día ${d}: consolidar noches y siestas`, steps:[
+      R,
+      `Acostarla despierta y salir. Si llora: ${how}.`,
+      `Mismo método en todos los despertares que no toquen toma. ${FEED_RULE}`,
+      'Antes de las 6:00 todo es “noche”: misma respuesta, sin luz, sin empezar el día.',
+      '1.ª y 2.ª siesta en la cuna. La última puede seguir siendo de rescate.',
+      'Si hay más de 2 tomas nocturnas: probad una toma del sueño hacia las 22-23 h (sin despertarla del todo).',
+      'No eliminéis tomas nocturnas sin hablarlo con el pediatra: a esta edad 1-3 son normales.'],
+      expect:'Se duerme sola en menos de 15 min. 1-2 tomas nocturnas. Los despertares extra van bajando.',
+      night:`Rutina → cuna → salir. ${how[0].toUpperCase()+how.slice(1)}.`};
+  }
+
+  return {phase:'Semana 5 · Autonomía y mantenimiento', title: d===35 ? 'Día 35: ¡graduación!' : `Día ${d}: autonomía`, steps:[
+    R,
+    'Rutina → cuna despierta → buenas noches → salir.',
+    'Alternad quién la acuesta: tiene que funcionar con los dos.',
+    FEED_RULE,
+    'Mantened la hora de despertar y las ventanas de vigilia: el horario es la mitad del éxito.',
+    'Leed el plan de mantenimiento en Ayuda (enfermedad, viajes, cambio de siestas, cuando se gire).',
+    ...(d===35 ? ['Mirad la pestaña Progreso: comparad la primera semana con esta. ¡Lo habéis conseguido!'] : [])],
+    expect:'Se duerme sola en pocos minutos casi todas las noches. Alguna noche peor es normal.',
+    night:'Rutina → cuna → salir.'};
+}
+
+const HELP = [
+  {id:'latency', t:'Tarda más de 30 min en dormirse', c:'Ventana de vigilia mal ajustada (poco cansada o pasada de cansancio), o la última siesta acaba demasiado tarde o pronto.', f:'Si protesta animada: alargad la ventana 15 min. Si llora frotándose ojos: acortad 15 min. La última siesta debería acabar 2-2h15 antes de acostarla. Probad 3 noches cada cambio.'},
+  {id:'early30', t:'Se despierta a los 30-45 min de acostarla', c:'Sobrecansancio o entró en la cuna demasiado dormida.', f:'Acostadla 15-30 min antes y más despierta. Revisad que la rutina no acabe con ella dormida.'},
+  {id:'frequent', t:'Se despierta cada 1-2 horas', c:'Sigue durmiéndose al pecho en algún momento (al acostar o en despertares), o tomas diurnas pequeñas.', f:'Revisad la regla de las 3 h y que nadie la duerma al pecho. Tomas diurnas completas y sin distracciones. Que el otro progenitor atienda los despertares que no tocan toma.'},
+  {id:'early', t:'Se despierta antes de las 6:00', c:'Luz que entra, hambre, la 1.ª siesta demasiado pronto o sobrecansancio.', f:'Oscuridad total, tratad todo antes de las 6:00 como noche, no adelantéis la 1.ª siesta (mínimo 1h30 desde las 6-7). Revisad que no esté pasada de cansancio al acostarla.'},
+  {id:'naps', t:'Siestas cortas (30-45 min)', c:'Normal hasta los 5-6 meses: su ciclo de sueño dura eso.', f:'No peleéis con ellas. Si se despierta llorando, podéis intentar 10 min de reasentar; si no, siesta de rescate. Lo importante es el sueño total del día.'},
+  {id:'worse', t:'El llanto va a más tras 4-5 noches', c:'Inconsistencia (cada uno hace una cosa), hambre real, malestar o enfermedad.', f:'Repasad juntos el plan: ¿hacéis lo mismo los dos? Revisad tomas y salud. Volver una fase atrás está permitido. Si hay dudas de salud, pediatra.'},
+  {id:'sick', t:'Fiebre, vacunas, mocos, dientes', c:'Malestar real: no es momento de aprender.', f:'Pulsad “Pausa hoy” en la pestaña Hoy. Consolad todo lo que haga falta. Volved al plan a las 48 h sin síntomas; suele recuperarse en 1-2 noches.'},
+  {id:'tired', t:'Estáis agotados o no estáis de acuerdo', c:'La constancia de los dos importa más que la velocidad.', f:'Pausad o repetid la semana 2. Repartid noches (una noche cada uno). Elegid el método con el que los dos podáis ser constantes.'},
+  {id:'roll', t:'Ha empezado a girarse', c:'Nueva habilidad: es normal que la practique en la cuna.', f:'Dejad el arrullo y usad saco con brazos libres. Practicad mucho boca abajo de día. Ponedla siempre boca arriba; si se gira sola y ya sabe volver, puede quedarse así.'},
+  {id:'travel', t:'Viajes y cambios de rutina', c:'Entorno nuevo.', f:'Llevad saco, ruido blanco y la misma rutina. Al volver, 2-3 noches de constancia la devuelven al punto.'},
+];
+const DOCTOR = ['Ronquidos fuertes, pausas en la respiración o respira con esfuerzo.','Fiebre (≥38 °C con menos de 6 meses: consultad siempre).','Poca ganancia de peso, menos pañales mojados o rechaza tomas.','Llanto inconsolable que no parece de protesta, o dolor al comer/arquearse (posible reflujo).','Cualquier cosa que os preocupe: el pediatra tiene la última palabra.'];
+
+// Reglas automáticas sobre las últimas noches registradas (lista ordenada por fecha).
+function rules(logs){
+  const L = logs.slice(-3), out = [];
+  if (L.length < 3) return out;
+  const lat = avg(L.map(l=>+l.latency).filter(n=>!isNaN(n)));
+  if (lat !== null && lat > 30) out.push('latency');
+  const wk = avg(L.map(l=>+l.wakings).filter(n=>!isNaN(n)));
+  if (wk !== null && wk > 4) out.push('frequent');
+  if (L.some(l => l.morning && toMin(l.morning) < 360)) out.push('early');
+  const P = logs.slice(-6, -3);
+  if (P.length === 3) {
+    const cNow = avg(L.map(l=>+l.crying||0)), cPrev = avg(P.map(l=>+l.crying||0));
+    if (cNow > cPrev + 0.5) out.push('worse');
+  }
+  return out;
+}
+
+// ---------- vistas ----------
+let tab = 'hoy';
+const TABS = [['hoy','☀️','Hoy'],['log','✏️','Registro'],['prog','📈','Progreso'],['plan','📖','Programa'],['help','🆘','Ayuda'],['cfg','⚙️','Ajustes']];
+function sortedLogs(){ return Object.keys(S.logs).sort().map(k => ({date:k, ...S.logs[k]})); }
+
+function render(){
+  $('#nav').innerHTML = TABS.map(([k,i,l]) => `<button class="${k===tab?'on':''}" data-tab="${k}"><b>${i}</b>${l}</button>`).join('');
+  const d = programDay(S, today());
+  $('#hdr').textContent = d === null ? '' : d === 0 ? 'Preparación' : d > 35 ? 'Completado' : `Día ${d}/35`;
+  $('#app').innerHTML = !S.startDate && tab !== 'cfg' && tab !== 'plan' && tab !== 'help' ? vSetup() : ({hoy:vHoy, log:vLog, prog:vProg, plan:vPlan, help:vHelp, cfg:vCfg})[tab]();
+  if (tab === 'hoy') napCalc();
+  window.scrollTo(0,0);
+}
+
+function vSetup(){
+  return `<div class="card"><h2>Bienvenidos 👋</h2>
+  <p>Programa de 5 semanas para que vuestra bebé aprenda a dormirse sola en la cuna, empezando suave y avanzando según cómo responda.</p>
+  <p class="mut">Los datos se guardan solo en este dispositivo. Exportad una copia de vez en cuando desde Ajustes.</p>
+  <label class="f"><span>Nombre de la bebé</span><input id="s-name" value="${esc(S.name)}"></label>
+  <label class="f"><span>Fecha de inicio (Día 1). Dejad unos días antes para la preparación.</span><input type="date" id="s-start" value="${addDays(today(),1)}"></label>
+  <label class="f"><span>Hora fija de despertar</span><input type="time" id="s-wake" value="${esc(S.wakeTime)}"></label>
+  <button data-act="setup">Empezar</button></div>
+  <div class="card"><h2>Antes de empezar</h2><p class="mut">Ninguna estrategia ha demostrado ser mejor que otra: lo que predice el éxito es la constancia de los dos. Este plan no quita tomas nocturnas y no sustituye al pediatra.</p></div>`;
+}
+
+function checklist(items, store, prefix){
+  return items.map((t,i) => { const k = prefix + i; return `<label class="chk"><input type="checkbox" data-chk="${k}" ${store[k]?'checked':''}><span>${t}</span></label>`; }).join('');
+}
+
+function vHoy(){
+  const t = today(), d = programDay(S, t), paused = S.pausedDates.includes(t);
+  const needCp = d >= 15 && !S.branch; // tras registrar la noche 14
+  const day = getDay(needCp ? 14 : d, S.branch);
+  const L = sortedLogs().filter(l => l.date <= t);
+  const alerts = rules(L).map(id => HELP.find(h => h.id === id));
+  const done = (S.checks[t] = S.checks[t] || {});
+  let h = '';
+  if (paused) h += `<div class="card warn"><h2>⏸️ Pausa activa hoy</h2><p>Modo consuelo: atended lo que necesite sin preocuparos del método. El programa no avanza hoy.</p><button class="sec" data-act="pause">Quitar pausa</button></div>`;
+  if (needCp) h += vCheckpoint(L);
+  h += `<div class="card"><span class="tag">${esc(day.phase)}</span><h2>${esc(day.title)}</h2>
+    ${d>0&&d<=35?`<div class="prog"><i style="width:${d/35*100}%"></i></div>`:''}
+    ${day.prep ? checklist(PREP.map(p=>p[1]), S.prep, 'p') : checklist(day.steps, done, 'd'+(needCp?14:d)+'-')}</div>`;
+  h += `<div class="card"><h2>🌙 Plan de esta noche</h2><p>${esc(day.night)}</p>${d>=8&&d<=35?`<p class="mut">${esc(FEED_RULE)}</p>`:''}</div>`;
+  h += `<div class="card"><h2>🔮 Qué esperar</h2><p>${esc(day.expect)}</p></div>`;
+  alerts.forEach(a => h += `<div class="card warn"><h2>⚠️ ${esc(a.t)}</h2><p class="mut">Detectado en vuestros últimos registros.</p><p><b>Causa probable:</b> ${esc(a.c)}</p><p><b>Qué probar:</b> ${esc(a.f)}</p></div>`);
+  h += vTimer(day.timer);
+  h += `<div class="card"><h2>⏰ Calculadora de siestas</h2>
+    <div class="row"><label class="f"><span>Se despertó a las</span><input type="time" id="nc-t" value="${esc(S.wakeTime)}"></label>
+    <label class="f"><span>Ventana</span><select id="nc-w"><option value="90,105">1.ª del día (1h30-1h45)</option><option value="105,120">Intermedia (1h45-2h)</option><option value="120,135">Antes de dormir (2h-2h15)</option></select></label></div>
+    <p id="nc-out" style="font-size:18px"></p><p class="mut">Empezad la rutina de siesta 10 min antes. Si veis señales de sueño antes, adelantad.</p></div>`;
+  if (!paused && d > 0) h += `<div class="card"><h2>¿Enferma, vacunas o mala racha?</h2><p class="mut">Pausar hoy congela el programa: mañana se repite este día.</p><button class="sec" data-act="pause">⏸️ Pausa hoy</button></div>`;
+  return h;
+}
+
+function vCheckpoint(L){
+  const last = L.slice(-3);
+  const lat = avg(last.map(l=>+l.latency).filter(n=>!isNaN(n)));
+  const indep = last.filter(l => l.how === 'sola' || l.how === 'presencia').length;
+  const good = lat !== null && lat <= 30 && indep >= 2;
+  return `<div class="card okc"><h2>🚦 Punto de control (día 14)</h2>
+    <p>Últimas noches: ${lat===null?'sin datos suficientes':`tarda de media <b>${Math.round(lat)} min</b>, ${indep}/${last.length} noches dormida en la cuna sin brazos ni pecho`}.</p>
+    <p><b>Recomendación:</b> ${good ? 'va bien → <b>Rama A</b>: retirar la silla poco a poco.' : 'no avanza lo suficiente → si estáis cómodos, <b>Rama B</b> (visitas a intervalos); si no, repetid la semana 2.'}</p>
+    <p class="mut">Rama A: más lenta, casi sin llanto. Rama B: suele funcionar en 3-7 noches, con llanto supervisado. Las dos son seguras; elegid la que podáis mantener los dos.</p>
+    <div class="row"><button data-act="branchA">Rama A · silla</button><button data-act="branchB">Rama B · intervalos</button><button class="sec" data-act="repeat">Repetir semana 2</button></div></div>`;
+}
+
+// Temporizador: pausa de espera o secuencia de intervalos (rama B).
+let T = {end:0, idx:0, seq:null, id:0};
+function vTimer(seq){
+  const s = seq || [3];
+  return `<div class="card"><h2>⏱️ Temporizador</h2>
+    <div class="big" id="tm">--:--</div><p class="mut" id="tm-msg" style="text-align:center">${seq?`Intervalos de hoy: ${seq.join(' → ')} min`:'Pausa antes de acudir'}</p>
+    <div class="row">${seq?`<button data-act="tstart" data-seq="${s.join(',')}">Empezar intervalos</button><button class="sec" data-act="tnext">Siguiente visita</button>`:`<button data-act="tstart" data-seq="2">2 min</button><button data-act="tstart" data-seq="3">3 min</button>`}<button class="sec" data-act="tstop">Parar</button></div></div>`;
+}
+function startStep(){
+  const m = T.seq[Math.min(T.idx, T.seq.length-1)];
+  T.end = Date.now() + m*60e3;
+  clearInterval(T.id); T.id = setInterval(tick, 250); tick();
+  const msg = $('#tm-msg'); if (msg) msg.textContent = T.seq.length>1 ? `Espera ${T.idx+1}: ${m} min` : `Esperando ${m} min`;
+}
+function tick(){
+  const el = $('#tm'), left = Math.max(0, T.end - Date.now());
+  if (el) el.textContent = `${pad(Math.floor(left/60e3))}:${pad(Math.floor(left/1e3)%60)}`;
+  if (left === 0) {
+    clearInterval(T.id);
+    navigator.vibrate?.([300,150,300]);
+    try { const a = new AudioContext(), o = a.createOscillator(), g = a.createGain(); o.frequency.value = 520; g.gain.value = .08; o.connect(g).connect(a.destination); o.start(); o.stop(a.currentTime + .6); } catch {}
+    const msg = $('#tm-msg'); if (msg) msg.textContent = T.seq.length>1 ? '¡Toca visita! 1-2 min, voz y mano, sin coger. Luego pulsa “Siguiente visita”.' : 'Tiempo. Si sigue llorando, acudid.';
+  }
+}
+
+function vLog(){
+  const t = today(), date = window._logDate || t, l = S.logs[date] || {};
+  const v = k => esc(l[k] ?? '');
+  const opt = (k, opts) => opts.map(([val,lab]) => `<option value="${val}" ${l[k]===val?'selected':''}>${lab}</option>`).join('');
+  return `<div class="card"><h2>✏️ Registro de la noche</h2>
+    <label class="f"><span>Noche que empieza el día</span><input type="date" id="l-date" value="${date}" max="${t}"></label>
+    <div class="row"><label class="f"><span>Hora a la cuna</span><input type="time" id="l-bed" value="${v('bed')}"></label>
+    <label class="f"><span>Minutos hasta dormirse</span><input type="number" inputmode="numeric" min="0" id="l-latency" value="${v('latency')}"></label></div>
+    <label class="f"><span>Cómo se durmió</span><select id="l-how"><option value="">—</option>${opt('how',[['sola','Sola, sin ayuda'],['presencia','En la cuna, con vuestra presencia/ayuda'],['brazos','En brazos o meciendo'],['pecho','Al pecho']])}</select></label>
+    <div class="row"><label class="f"><span>Despertares</span><input type="number" inputmode="numeric" min="0" id="l-wakings" value="${v('wakings')}"></label>
+    <label class="f"><span>Tomas nocturnas</span><input type="number" inputmode="numeric" min="0" id="l-feeds" value="${v('feeds')}"></label></div>
+    <div class="row"><label class="f"><span>Despertar de la mañana</span><input type="time" id="l-morning" value="${v('morning')}"></label>
+    <label class="f"><span>Llanto</span><select id="l-crying"><option value="">—</option>${opt('crying',[['0','Nada'],['1','Poco (<10 min)'],['2','Moderado (10-30 min)'],['3','Mucho (>30 min)']])}</select></label></div>
+    <div class="row"><label class="f"><span>Siestas del día</span><input type="number" inputmode="numeric" min="0" id="l-naps" value="${v('naps')}"></label>
+    <label class="f"><span>…de ellas en la cuna</span><input type="number" inputmode="numeric" min="0" id="l-napsCrib" value="${v('napsCrib')}"></label></div>
+    <label class="f"><span>Notas</span><textarea id="l-notes">${v('notes')}</textarea></label>
+    <div class="row"><button data-act="savelog">Guardar</button>${S.logs[date]?'<button class="bad" data-act="dellog">Borrar</button>':''}</div></div>
+    <div class="card"><h2>Historial</h2>${sortedLogs().reverse().map(x=>`<details><summary>${fmtDate(x.date)} · ${x.latency??'?'} min · ${x.wakings??'?'} desp.</summary><p class="mut">A la cuna ${esc(x.bed||'?')} · ${esc(x.how||'?')} · tomas ${esc(x.feeds??'?')} · despertó ${esc(x.morning||'?')} · siestas ${esc(x.naps??'?')} (${esc(x.napsCrib??'?')} en cuna)${x.notes?'<br>'+esc(x.notes):''}</p><button class="sec" data-act="editlog" data-date="${x.date}">Editar</button></details>`).join('') || '<p class="mut">Aún no hay registros.</p>'}</div>`;
+}
+
+function bars(rows, key, color, unit){
+  const vals = rows.map(r => +r[key]).map(n => isNaN(n) ? 0 : n);
+  const max = Math.max(1, ...vals), w = 300, h = 120, bw = w / Math.max(vals.length, 1);
+  return `<svg viewBox="0 0 ${w} ${h+16}" width="100%" role="img" aria-label="${unit}">
+    ${vals.map((v,i) => { const bh = v/max*h; return `<rect x="${i*bw+1}" y="${h-bh}" width="${Math.max(bw-2,1)}" height="${bh}" rx="2" fill="${color}"><title>${rows[i].date}: ${v} ${unit}</title></rect>`; }).join('')}
+    <text x="0" y="${h+12}">${rows[0]?fmtDate(rows[0].date):''}</text><text x="${w}" y="${h+12}" text-anchor="end">${rows.length?fmtDate(rows[rows.length-1].date):''}</text><text x="0" y="10">${max} ${unit}</text></svg>`;
+}
+
+function vProg(){
+  const L = sortedLogs();
+  if (!L.length) return '<div class="card"><h2>📈 Progreso</h2><p class="mut">Registrad algunas noches para ver la evolución.</p></div>';
+  const first = L.slice(0,3), last = L.slice(-3);
+  const m = (a,k) => { const x = avg(a.map(l=>+l[k]).filter(n=>!isNaN(n))); return x===null?'–':Math.round(x*10)/10; };
+  const indep = a => Math.round(a.filter(l=>l.how==='sola'||l.how==='presencia').length / a.length * 100) + '%';
+  return `<div class="card"><h2>📈 Antes y ahora</h2><p class="mut">Primeras 3 noches vs últimas 3</p>
+    <table><tr><th></th><th>Antes</th><th>Ahora</th><th>Objetivo sem. 4-5</th></tr>
+    <tr><td>Min. hasta dormirse</td><td>${m(first,'latency')}</td><td>${m(last,'latency')}</td><td>&lt;15</td></tr>
+    <tr><td>Despertares</td><td>${m(first,'wakings')}</td><td>${m(last,'wakings')}</td><td>1-3</td></tr>
+    <tr><td>Tomas nocturnas</td><td>${m(first,'feeds')}</td><td>${m(last,'feeds')}</td><td>1-2</td></tr>
+    <tr><td>Se duerme en la cuna</td><td>${indep(first)}</td><td>${indep(last)}</td><td>100%</td></tr></table></div>
+    <div class="card"><h2>Minutos hasta dormirse</h2>${bars(L,'latency','var(--acc)','min')}</div>
+    <div class="card"><h2>Despertares por noche</h2>${bars(L,'wakings','var(--blue)','desp.')}</div>
+    <div class="card"><h2>Siestas en la cuna</h2>${bars(L,'napsCrib','var(--ok)','siestas')}</div>
+    <div class="card"><h2>Progreso esperado</h2><ul>
+    <li><b>Semana 1:</b> la noche casi no cambia; se instaura la rutina.</li>
+    <li><b>Semana 2:</b> noches 2-4 duras; al final se duerme en la cuna con vosotros en &lt;20-30 min.</li>
+    <li><b>Semana 3:</b> rama A: menos presencia, poco llanto. Rama B: pico de llanto noches 2-3, mejora clara en 3-7 noches.</li>
+    <li><b>Semana 4:</b> &lt;15 min, 1-2 tomas, menos despertares; siestas de mañana en la cuna.</li>
+    <li><b>Semana 5:</b> se duerme sola casi todas las noches.</li></ul></div>`;
+}
+
+function vPlan(){
+  const cur = S.startDate ? programDay(S, today()) : -1;
+  const weeks = [[0,0,'Día 0 · Preparación'],[1,7,'Semana 1 · Cimientos'],[8,14,'Semana 2 · Dormirse en la cuna, acompañada'],[15,21,'Semana 3 · Rama A (silla) o B (intervalos)'],[22,28,'Semana 4 · Noches y siestas'],[29,35,'Semana 5 · Autonomía']];
+  const dayHtml = (n, br) => { const g = getDay(n, br); return `<details ${n===cur?'open':''}><summary>${n===cur?'👉 ':''}${esc(g.title)}${br?` <span class="tag">Rama ${br}</span>`:''}</summary><ul>${g.steps.map(s=>`<li>${esc(s)}</li>`).join('')}</ul><p><b>Esta noche:</b> ${esc(g.night)}</p><p class="mut"><b>Esperado:</b> ${esc(g.expect)}</p></details>`; };
+  return `<div class="card"><h2>📖 El programa completo</h2><p class="mut">Enfoque escalonado: dos semanas sin llanto en solitario, punto de control el día 14 y después vosotros decidís cómo seguir.</p></div>` +
+    weeks.map(([a,b,t]) => { let inner = '';
+      for (let n=a; n<=b; n++) inner += (n>=15&&n<=21) ? (S.branch!=='B'?dayHtml(n,'A'):'') + (S.branch!=='A'?dayHtml(n,'B'):'') : dayHtml(n, S.branch);
+      return `<div class="card"><h2>${t}</h2>${inner}</div>`; }).join('') + `<div class="card">${(()=>{const g=getDay(36);return `<h2>Después: ${g.title}</h2><ul>${g.steps.map(s=>`<li>${esc(s)}</li>`).join('')}</ul>`})()}</div>`;
+}
+
+function vHelp(){
+  return `<div class="card"><h2>🆘 Si algo no funciona</h2>${HELP.map(x=>`<details><summary>${esc(x.t)}</summary><p><b>Causa probable:</b> ${esc(x.c)}</p><p><b>Qué probar:</b> ${esc(x.f)}</p></details>`).join('')}</div>
+  <div class="card warn"><h2>🩺 Llamad al pediatra si…</h2><ul>${DOCTOR.map(x=>`<li>${esc(x)}</li>`).join('')}</ul></div>
+  <div class="card"><h2>🛏️ Sueño seguro</h2><ul>${SAFE.map(x=>`<li>${esc(x)}</li>`).join('')}</ul></div>
+  <div class="card"><h2>📚 En qué se basa</h2><ul>
+  <li>A partir de los 4 meses se puede empezar a enseñar a dormir (Zero to Three, Sleep Foundation).</li>
+  <li>Ningún método (intervalos, silla, coger/dejar) ha demostrado ser mejor que otro; lo que más pesa es la constancia y el temperamento (ParentData, ensayo de Gradisar 2016).</li>
+  <li>Seguimientos a 5 años no encontraron efectos negativos en apego ni estrés.</li>
+  <li>A los 4 meses: ventanas de vigilia de 1h30-2h15, 3-4 siestas (las de 30-45 min son normales), 10-12 h de noche y 1-3 tomas nocturnas.</li>
+  <li>Sueño seguro según AAP y AEP.</li></ul><p class="mut">Esta app es una guía, no consejo médico.</p></div>`;
+}
+
+function vCfg(){
+  return `<div class="card"><h2>⚙️ Ajustes</h2>
+    <label class="f"><span>Nombre de la bebé</span><input id="c-name" value="${esc(S.name)}"></label>
+    <label class="f"><span>Fecha de inicio (Día 1)</span><input type="date" id="c-start" value="${esc(S.startDate)}"></label>
+    <label class="f"><span>Hora fija de despertar</span><input type="time" id="c-wake" value="${esc(S.wakeTime)}"></label>
+    <label class="f"><span>Rama de la semana 3</span><select id="c-branch"><option value="">Sin decidir (punto de control día 14)</option><option value="A" ${S.branch==='A'?'selected':''}>A · retirada de la silla</option><option value="B" ${S.branch==='B'?'selected':''}>B · visitas a intervalos</option></select></label>
+    <p class="mut">Días en pausa: ${S.pausedDates.length} · Repeticiones de la semana 2: ${S.repeats}</p>
+    <button data-act="savecfg">Guardar</button></div>
+    <div class="card"><h2>💾 Copia de seguridad</h2><p class="mut">Los datos solo viven en este navegador. Exportad una copia cada pocos días; en móvil añadid la app a la pantalla de inicio para que no se borren.</p>
+    <div class="row"><button class="sec" data-act="export">Exportar</button><button class="sec" data-act="import">Importar</button></div><input type="file" id="c-file" accept="application/json,.json" hidden></div>
+    <div class="card"><h2>Reiniciar</h2><button class="bad" data-act="reset">Borrar todos los datos</button></div>`;
+}
+
+function napCalc(){
+  const t = $('#nc-t'), w = $('#nc-w'), out = $('#nc-out');
+  const upd = () => { const m = toMin(t.value); if (m===null) return out.textContent=''; const [a,b] = w.value.split(',').map(Number); out.innerHTML = `Próximo sueño entre <b>${fromMin(m+a)}</b> y <b>${fromMin(m+b)}</b>`; };
+  t.oninput = w.onchange = upd; upd();
+}
+
+// ---------- acciones ----------
+document.addEventListener('click', e => {
+  const b = e.target.closest('[data-tab],[data-act]'); if (!b) return;
+  if (b.dataset.tab) { tab = b.dataset.tab; window._logDate = null; return render(); }
+  const t = today(), a = b.dataset.act, val = id => $(id).value.trim();
+  if (a === 'setup') { if (!val('#s-start')) return alert('Elegid una fecha de inicio.'); Object.assign(S, {name:val('#s-name'), startDate:val('#s-start'), wakeTime:val('#s-wake')||'07:00'}); }
+  else if (a === 'pause') { S.pausedDates = S.pausedDates.includes(t) ? S.pausedDates.filter(d=>d!==t) : [...S.pausedDates, t]; }
+  else if (a === 'branchA' || a === 'branchB') { S.branch = a.slice(-1); }
+  else if (a === 'repeat') { const d = programDay(S, t); S.offset = (S.offset||0) + (d - 8); S.repeats++; }
+  else if (a === 'savelog') {
+    const date = val('#l-date'); if (!date) return alert('Elegid la fecha.');
+    const keys = ['bed','latency','how','wakings','feeds','morning','crying','naps','napsCrib','notes'];
+    S.logs[date] = Object.fromEntries(keys.map(k => [k, val('#l-'+k)]).filter(([,v]) => v !== ''));
+    window._logDate = null; save(); tab = 'hoy'; return render();
+  }
+  else if (a === 'dellog') { if (!confirm('¿Borrar este registro?')) return; delete S.logs[val('#l-date')]; window._logDate = null; }
+  else if (a === 'editlog') { window._logDate = b.dataset.date; return render(); }
+  else if (a === 'savecfg') { Object.assign(S, {name:val('#c-name'), startDate:val('#c-start'), wakeTime:val('#c-wake')||'07:00', branch:val('#c-branch')||null}); alert('Guardado'); }
+  else if (a === 'export') { const url = URL.createObjectURL(new Blob([JSON.stringify(S,null,1)],{type:'application/json'})); Object.assign(document.createElement('a'),{href:url,download:`naptime-${t}.json`}).click(); setTimeout(()=>URL.revokeObjectURL(url),1000); return; }
+  else if (a === 'import') { const f = $('#c-file'); f.onchange = () => { const r = new FileReader(); r.onload = () => { try { const d = JSON.parse(r.result); if (typeof d !== 'object' || !d.logs) throw 0; S = Object.assign(blank(), d); save(); alert('Datos importados'); render(); } catch { alert('Archivo no válido'); } }; r.readAsText(f.files[0]); }; f.click(); return; }
+  else if (a === 'reset') { if (!confirm('¿Seguro? Se borrará todo. Exportad antes una copia si la queréis.')) return; S = blank(); tab = 'hoy'; }
+  else if (a === 'tstart') { T.seq = b.dataset.seq.split(',').map(Number); T.idx = 0; return startStep(); }
+  else if (a === 'tnext') { if (!T.seq) return; T.idx++; return startStep(); }
+  else if (a === 'tstop') { clearInterval(T.id); T.seq = null; $('#tm').textContent = '--:--'; return; }
+  save(); render();
+});
+document.addEventListener('change', e => {
+  const k = e.target.dataset.chk; if (!k) return;
+  const store = k[0] === 'p' ? S.prep : (S.checks[today()] = S.checks[today()] || {});
+  store[k] = e.target.checked; save();
+});
+document.addEventListener('change', e => { if (e.target.id === 'l-date') { window._logDate = e.target.value; render(); } });
+
+// ---------- autotest: abrir con ?test ----------
+if (location.search.includes('test')) {
+  const ok = [], A = (c, m) => { if (!c) throw new Error('FALLO: ' + m); ok.push(m); };
+  const st = {...blank(), startDate:'2026-01-01'};
+  A(programDay(st,'2025-12-30') === 0, 'antes del inicio = preparación');
+  A(programDay(st,'2026-01-01') === 1, 'primer día = 1');
+  A(programDay(st,'2026-01-14') === 14, 'día 14');
+  A(programDay({...st, pausedDates:['2026-01-05']},'2026-01-05') === 4, 'hoy en pausa congela el día anterior');
+  A(programDay({...st, pausedDates:['2026-01-05']},'2026-01-06') === 5, 'tras la pausa se repite el día');
+  A(programDay({...st, offset:6},'2026-01-14') === 8, 'repetir semana 2 vuelve al día 8');
+  A(getDay(16,'B').timer.join() === '5,10,12', 'rama B noche 2 = 5-10-12');
+  A(getDay(21,'B').timer.join() === '10,12,15', 'rama B noche 7 = 10-12-15');
+  A(getDay(40).title === 'Mantenimiento', 'después del día 35 = mantenimiento');
+  const lg = (lat,wk,mo,cr) => ({latency:String(lat), wakings:String(wk), morning:mo, crying:String(cr)});
+  A(rules([lg(40,2,'07:00',0),lg(35,2,'07:00',0),lg(45,2,'07:00',0)]).includes('latency'), 'regla latencia');
+  A(rules([lg(10,6,'07:00',0),lg(10,5,'07:00',0),lg(10,5,'07:00',0)]).includes('frequent'), 'regla despertares');
+  A(rules([lg(10,1,'05:30',0),lg(10,1,'07:00',0),lg(10,1,'07:00',0)]).includes('early'), 'regla madrugón');
+  A(rules([lg(10,1,'07:00',0),lg(10,1,'07:00',0),lg(10,1,'07:00',0),lg(10,1,'07:00',3),lg(10,1,'07:00',3),lg(10,1,'07:00',2)]).includes('worse'), 'regla empeora');
+  A(rules([lg(10,1,'07:00',0),lg(10,1,'07:00',0)]).length === 0, 'sin reglas con menos de 3 noches');
+  document.body.innerHTML = `<main><div class="card okc"><h2>✅ ${ok.length} tests OK</h2><ul>${ok.map(m=>`<li>${m}</li>`).join('')}</ul></div></main>`;
+} else render();
+</script>
+</body>
+</html>
