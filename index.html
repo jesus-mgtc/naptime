@@ -101,7 +101,7 @@ const PREP = [
 ];
 
 const W2_LADDER = 'Escalera de ayuda (1-2 min por escalón, sube solo si el llanto va a más): esperar en silencio → voz suave/“shhh” → mano quieta en el pecho → palmaditas o mecer la cuna → cogerla solo hasta que se calme (no hasta que se duerma) y volver a dejarla.';
-const FEED_RULE = 'Despertar nocturno: si han pasado ≥3 h desde la última toma → toma tranquila, a oscuras, sin hablar, y a la cuna despierta. Si han pasado <3 h → reasentar sin pecho (mejor el otro progenitor).';
+const FEED_RULE = 'Despertar nocturno: si han pasado ≥3 h desde la última toma → toma tranquila, a oscuras, sin hablar; despegadla cuando la succión se ralentice y a la cuna somnolienta. Si alguna toma de madrugada acaba dormida, no pasa nada: lo clave es la hora de acostarla. Si han pasado <3 h → volver a dormirla sin pecho (mejor el otro progenitor).';
 const INTERVALS = [[3,5,10],[5,10,12],[10,12,15]];
 
 function weekOf(d){ return d===0 ? 0 : Math.min(5, Math.ceil(d/7)); }
@@ -115,7 +115,8 @@ function getDay(d, branch){
     'Si un hábito antiguo vuelve (dormirse al pecho), repetid 3-4 noches de la semana 2: se recupera rápido.'],
     expect:'Habrá noches malas puntuales (dientes, saltos de desarrollo). No significa que se haya perdido lo aprendido.', night:'Rutina → cuna despierta → buenas noches → salir.'};
 
-  const R = 'Rutina de 20-30 min, siempre igual: baño (o lavado rápido) → pijama y saco → toma con luz encendida → cuento o canción → cuna.';
+  const R1 = 'Rutina de 20-30 min, siempre igual: baño (o lavado rápido) → pijama y saco → toma en la habitación con luz tenue → canción → cuna.';
+  const R = 'Rutina de 20-30 min, siempre igual: baño → toma con luz tenue → pañal, pijama y saco → canción o cuento → cuna despierta. Entre el final de la toma y la cuna deben pasar 5-10 min: así el pecho deja de ser lo último antes de dormir.';
   if (d <= 3) return {phase:'Semana 1 · Cimientos', title:`Día ${d}: observar y registrar`, steps:[
     `Despertarla a las ${S.wakeTime} (±30 min) y abrir persianas: la luz de la mañana fija su reloj.`,
     'Respetar ventanas de vigilia de 1h30-2h15 (usa la calculadora de abajo).',
@@ -124,16 +125,23 @@ function getDay(d, branch){
     'Registrar la noche y las siestas en la pestaña Registro.'],
     expect:'Nada cambia todavía. Estos datos son vuestra línea base para ver el progreso.',
     night:'Como siempre. Apuntad hora de acostarla, cuánto tarda, despertares y tomas.'};
-  if (d <= 7) return {phase:'Semana 1 · Cimientos', title: d===4 ? 'Día 4: empieza la rutina y se separa comer de dormir' : `Día ${d}: rutina y comer-jugar-dormir`, steps:[
-    R,
-    'La toma va al principio de la rutina, con luz. Si se duerme mamando, despertadla suavemente (cambiar de pecho, hablarle, cambiar pañal).',
-    'De día: comer → jugar → dormir. La toma al despertar de la siesta, no para dormirla.',
-    'Tomas diurnas completas y tranquilas, sin distracciones: menos hambre de noche.',
-    'Practicar “somnolienta pero despierta” al acostarla de noche y en la 1.ª siesta: dejadla en la cuna y ayudad ahí (mano, “shhh”). Si en 10-15 min no lo consigue, dormidla como siempre sin culpa.',
-    'De noche, al oírla: esperar 2-3 min antes de entrar (usa el temporizador). Muchos ruidos son sueño activo, no despertares.',
-    ...(d >= 6 ? ['Intentad que la 1.ª siesta de la mañana empiece en la cuna.'] : [])],
-    expect:'De noche apenas cambia. Puede que se duerma algo más rápido con la rutina. Es normal que proteste al quitarle el pecho de la rutina.',
-    night:'Rutina completa. Intento de dejarla despierta. Pausa de 2-3 min antes de acudir en los despertares.'};
+  if (d <= 7) {
+    const early = d <= 5;
+    return {phase:'Semana 1 · Cimientos', title: early ? `Día ${d}: rutina y despegar del pecho al final de la toma` : `Día ${d}: despegar antes y terminar en la cuna`, steps:[
+      R1,
+      'Siestas: como siempre, con pecho. Todo el trabajo se hace de noche.',
+      early
+        ? 'Toma de dormir como siempre, pero cuando la succión se vuelva lenta y floja (ya no traga), despegadla con suavidad metiendo un dedo en la comisura. Si busca el pecho o protesta, volved a ponerla y repetid al cabo de 1-2 min.'
+        : 'Despegadla un poco antes, cuando esté muy somnolienta pero aún no dormida, y dejadla en la cuna. Ayudad ahí con mano en el pecho y “shhh”.',
+      early
+        ? 'Terminad de dormirla en brazos (sin pecho). Estos días no se busca que se duerma sola: solo que se acostumbre a dormirse sin el pezón en la boca.'
+        : 'Si en 10-15 min no lo consigue, cogedla en brazos hasta que se calme y probad otra vez. Si llora mucho, pecho sin culpa: mañana se intenta de nuevo.',
+      'Mismo despegue en la primera toma nocturna si os veis con fuerzas. En el resto de la noche, como siempre.',
+      'Tomas de día completas y tranquilas, sin distracciones: menos hambre por la noche.',
+      'De noche, al oírla: esperar 2-3 min antes de entrar (usa el temporizador). Muchos ruidos son sueño activo, no despertares.'],
+      expect: early ? 'Al principio protestará al despegarla y quizá haya que repetirlo 5-10 veces. Normalmente en 2-3 noches lo acepta mejor. La noche apenas cambia todavía.' : 'Algunas noches lo conseguirá en la cuna y otras no. Es normal: cada intento cuenta.',
+      night: early ? 'Rutina completa → toma → despegar cuando la succión se ralentice → terminar en brazos → cuna.' : 'Rutina → toma → despegar muy somnolienta → cuna con mano y “shhh”.'};
+  }
 
   const cp = d === 14 ? ['Esta noche registrad bien: mañana toca el punto de control.'] : [];
   if (d <= 14) {
@@ -143,9 +151,9 @@ function getDay(d, branch){
       'Acostarla DESPIERTA. Sentaos en una silla pegada a la cuna.',
       W2_LADDER,
       contact,
-      'Nunca el pecho para dormirla (ni a la hora de acostar ni en despertares que no toquen toma).',
+      'A la hora de acostarla, nunca el pecho para dormirla: si llora con hambre real, toma, pero vuelve a la cuna despierta.',
       FEED_RULE,
-      '1.ª siesta en la cuna con el mismo método (máx. 30 min de intento). El resto de siestas como sea (porteo, carro, brazos) para que no acumule cansancio.',
+      'Siestas: como siempre, con pecho si hace falta. Que duerma bien de día ayuda a que la noche sea más fácil.',
       ...cp],
       expect: d===8 ? 'Primera noche: puede tardar 30-60 min y llorar acompañada. Estáis a su lado; es lo esperado.' : d<=10 ? 'Las noches 2-4 suelen ser las más duras. La constancia ahora es lo que más cuenta.' : 'Hacia el día 12-14 debería dormirse en la cuna en menos de 20-30 min con vuestra presencia.',
       night:`Despierta a la cuna, silla al lado. ${contact}`};
@@ -162,7 +170,7 @@ function getDay(d, branch){
         'Visitas de 1-2 min: voz y mano, sin coger, sin encender luz. Después, salir aunque siga llorando.',
         'Si el llanto pasa a gritos desconsolados más de 15 min seguidos, cogedla hasta que se calme y volved a dejarla. No es un fracaso.',
         FEED_RULE + ' Si no toca toma, mismos intervalos empezando por el primero.',
-        'Siestas: mismos intervalos, máximo 30 min de intento. Si no se duerme, siesta de rescate y a por la siguiente.'],
+        'Siestas: como siempre, con pecho. Los intervalos son solo para la noche.'],
         expect: n===1 ? 'El llanto puede durar 20-45 min la primera noche. Es lo esperado.' : n<=3 ? 'Las noches 2-3 suelen ser el pico, a veces peores que la primera. Mantened el plan.' : n<=6 ? 'Mejora clara: cada vez menos llanto y se duerme antes.' : 'Puede haber una recaída puntual hacia la noche 5-7. Es normal: mantened el plan.',
         night:`Intervalos ${iv.join(' - ')} min. Visitas cortas, sin coger.`, timer:iv};
     }
@@ -174,19 +182,20 @@ function getDay(d, branch){
       'Si una noche se descontrola (más de 5 min de llanto intenso), acercad la silla un poco solo esa noche. No retrocedáis más.',
       'Los despertares nocturnos se reasientan también desde la posición de la silla de hoy.',
       FEED_RULE,
-      '1.ª y 2.ª siesta en la cuna con el mismo método; la última puede ser de rescate.'],
+      'Siestas: como siempre, con pecho.'],
       expect:'Más lento que con intervalos, pero con poco llanto. Debería seguir durmiéndose en menos de 20-30 min.',
       night:`Silla ${pos}.`};
   }
 
   if (d <= 28) {
     const how = branch==='B' ? 'intervalos (empezando por 10 min)' : 'voz desde fuera, entrando solo si el llanto va a más';
-    return {phase:'Semana 4 · Noches y siestas', title:`Día ${d}: consolidar noches y siestas`, steps:[
+    return {phase:'Semana 4 · Consolidar la noche', title:`Día ${d}: noches completas en la cuna`, steps:[
       R,
       `Acostarla despierta y salir. Si llora: ${how}.`,
       `Mismo método en todos los despertares que no toquen toma. ${FEED_RULE}`,
+      'En las tomas nocturnas, despegadla antes de que se duerma del todo y dejadla en la cuna despierta, igual que al acostarla.',
       'Antes de las 6:00 todo es “noche”: misma respuesta, sin luz, sin empezar el día.',
-      '1.ª y 2.ª siesta en la cuna. La última puede seguir siendo de rescate.',
+      'Siestas: como siempre. Si os apetece, podéis probar la primera de la mañana en la cuna, pero no es necesario.',
       'Si hay más de 2 tomas nocturnas: probad una toma del sueño hacia las 22-23 h (sin despertarla del todo).',
       'No eliminéis tomas nocturnas sin hablarlo con el pediatra: a esta edad 1-3 son normales.'],
       expect:'Se duerme sola en menos de 15 min. 1-2 tomas nocturnas. Los despertares extra van bajando.',
@@ -196,6 +205,7 @@ function getDay(d, branch){
   return {phase:'Semana 5 · Autonomía y mantenimiento', title: d===35 ? 'Día 35: ¡graduación!' : `Día ${d}: autonomía`, steps:[
     R,
     'Rutina → cuna despierta → buenas noches → salir.',
+    'Siestas: como mejor os funcione. Más adelante, si queréis, se puede aplicar lo mismo de día.',
     'Alternad quién la acuesta: tiene que funcionar con los dos.',
     FEED_RULE,
     'Mantened la hora de despertar y las ventanas de vigilia: el horario es la mitad del éxito.',
@@ -206,6 +216,7 @@ function getDay(d, branch){
 }
 
 const HELP = [
+  {id:'unlatch', t:'Llora mucho al despegarla del pecho', c:'Es su forma de dormirse de siempre: el cambio cuesta, sobre todo las primeras noches.', f:'Despegad más tarde (cuando ya casi no succiona) y volved a ponerla al pecho tantas veces como haga falta; cada vez aguantará un poco más. Mecer, “shhh” o que la coja el otro progenitor ayuda. Si después de 3-4 noches no avanza nada, quedaos un par de noches más en el paso anterior.'},
   {id:'latency', t:'Tarda más de 30 min en dormirse', c:'Ventana de vigilia mal ajustada (poco cansada o pasada de cansancio), o la última siesta acaba demasiado tarde o pronto.', f:'Si protesta animada: alargad la ventana 15 min. Si llora frotándose ojos: acortad 15 min. La última siesta debería acabar 2-2h15 antes de acostarla. Probad 3 noches cada cambio.'},
   {id:'early30', t:'Se despierta a los 30-45 min de acostarla', c:'Sobrecansancio o entró en la cuna demasiado dormida.', f:'Acostadla 15-30 min antes y más despierta. Revisad que la rutina no acabe con ella dormida.'},
   {id:'frequent', t:'Se despierta cada 1-2 horas', c:'Sigue durmiéndose al pecho en algún momento (al acostar o en despertares), o tomas diurnas pequeñas.', f:'Revisad la regla de las 3 h y que nadie la duerma al pecho. Tomas diurnas completas y sin distracciones. Que el otro progenitor atienda los despertares que no tocan toma.'},
@@ -252,7 +263,7 @@ function render(){
 
 function vSetup(){
   return `<div class="card"><h2>Bienvenidos 👋</h2>
-  <p>Programa de 5 semanas para que vuestra bebé aprenda a dormirse sola en la cuna, empezando suave y avanzando según cómo responda.</p>
+  <p>Programa de 5 semanas para que vuestra bebé aprenda a dormirse sola en la cuna por la noche (las siestas pueden seguir con pecho), empezando suave y avanzando según cómo responda.</p>
   <p class="mut">Los datos se guardan solo en este dispositivo. Exportad una copia de vez en cuando desde Ajustes.</p>
   <label class="f"><span>Nombre de la bebé</span><input id="s-name" value="${esc(S.name)}"></label>
   <label class="f"><span>Fecha de inicio (Día 1). Dejad unos días antes para la preparación.</span><input type="date" id="s-start" value="${addDays(today(),1)}"></label>
@@ -340,11 +351,10 @@ function vLog(){
     <label class="f"><span>Tomas nocturnas</span><input type="number" inputmode="numeric" min="0" id="l-feeds" value="${v('feeds')}"></label></div>
     <div class="row"><label class="f"><span>Despertar de la mañana</span><input type="time" id="l-morning" value="${v('morning')}"></label>
     <label class="f"><span>Llanto</span><select id="l-crying"><option value="">—</option>${opt('crying',[['0','Nada'],['1','Poco (<10 min)'],['2','Moderado (10-30 min)'],['3','Mucho (>30 min)']])}</select></label></div>
-    <div class="row"><label class="f"><span>Siestas del día</span><input type="number" inputmode="numeric" min="0" id="l-naps" value="${v('naps')}"></label>
-    <label class="f"><span>…de ellas en la cuna</span><input type="number" inputmode="numeric" min="0" id="l-napsCrib" value="${v('napsCrib')}"></label></div>
+    <label class="f"><span>Siestas del día</span><input type="number" inputmode="numeric" min="0" id="l-naps" value="${v('naps')}"></label>
     <label class="f"><span>Notas</span><textarea id="l-notes">${v('notes')}</textarea></label>
     <div class="row"><button data-act="savelog">Guardar</button>${S.logs[date]?'<button class="bad" data-act="dellog">Borrar</button>':''}</div></div>
-    <div class="card"><h2>Historial</h2>${sortedLogs().reverse().map(x=>`<details><summary>${fmtDate(x.date)} · ${x.latency??'?'} min · ${x.wakings??'?'} desp.</summary><p class="mut">A la cuna ${esc(x.bed||'?')} · ${esc(x.how||'?')} · tomas ${esc(x.feeds??'?')} · despertó ${esc(x.morning||'?')} · siestas ${esc(x.naps??'?')} (${esc(x.napsCrib??'?')} en cuna)${x.notes?'<br>'+esc(x.notes):''}</p><button class="sec" data-act="editlog" data-date="${x.date}">Editar</button></details>`).join('') || '<p class="mut">Aún no hay registros.</p>'}</div>`;
+    <div class="card"><h2>Historial</h2>${sortedLogs().reverse().map(x=>`<details><summary>${fmtDate(x.date)} · ${x.latency??'?'} min · ${x.wakings??'?'} desp.</summary><p class="mut">A la cuna ${esc(x.bed||'?')} · ${esc(x.how||'?')} · tomas ${esc(x.feeds??'?')} · despertó ${esc(x.morning||'?')} · siestas ${esc(x.naps??'?')}${x.notes?'<br>'+esc(x.notes):''}</p><button class="sec" data-act="editlog" data-date="${x.date}">Editar</button></details>`).join('') || '<p class="mut">Aún no hay registros.</p>'}</div>`;
 }
 
 function bars(rows, key, color, unit){
@@ -369,20 +379,20 @@ function vProg(){
     <tr><td>Se duerme en la cuna</td><td>${indep(first)}</td><td>${indep(last)}</td><td>100%</td></tr></table></div>
     <div class="card"><h2>Minutos hasta dormirse</h2>${bars(L,'latency','var(--acc)','min')}</div>
     <div class="card"><h2>Despertares por noche</h2>${bars(L,'wakings','var(--blue)','desp.')}</div>
-    <div class="card"><h2>Siestas en la cuna</h2>${bars(L,'napsCrib','var(--ok)','siestas')}</div>
+    <div class="card"><h2>Tomas nocturnas</h2>${bars(L,'feeds','var(--ok)','tomas')}</div>
     <div class="card"><h2>Progreso esperado</h2><ul>
     <li><b>Semana 1:</b> la noche casi no cambia; se instaura la rutina.</li>
     <li><b>Semana 2:</b> noches 2-4 duras; al final se duerme en la cuna con vosotros en &lt;20-30 min.</li>
     <li><b>Semana 3:</b> rama A: menos presencia, poco llanto. Rama B: pico de llanto noches 2-3, mejora clara en 3-7 noches.</li>
-    <li><b>Semana 4:</b> &lt;15 min, 1-2 tomas, menos despertares; siestas de mañana en la cuna.</li>
+    <li><b>Semana 4:</b> &lt;15 min, 1-2 tomas, menos despertares; en las tomas nocturnas vuelve a la cuna despierta.</li>
     <li><b>Semana 5:</b> se duerme sola casi todas las noches.</li></ul></div>`;
 }
 
 function vPlan(){
   const cur = S.startDate ? programDay(S, today()) : -1;
-  const weeks = [[0,0,'Día 0 · Preparación'],[1,7,'Semana 1 · Cimientos'],[8,14,'Semana 2 · Dormirse en la cuna, acompañada'],[15,21,'Semana 3 · Rama A (silla) o B (intervalos)'],[22,28,'Semana 4 · Noches y siestas'],[29,35,'Semana 5 · Autonomía']];
+  const weeks = [[0,0,'Día 0 · Preparación'],[1,7,'Semana 1 · Cimientos'],[8,14,'Semana 2 · Dormirse en la cuna, acompañada'],[15,21,'Semana 3 · Rama A (silla) o B (intervalos)'],[22,28,'Semana 4 · Consolidar la noche'],[29,35,'Semana 5 · Autonomía']];
   const dayHtml = (n, br) => { const g = getDay(n, br); return `<details ${n===cur?'open':''}><summary>${n===cur?'👉 ':''}${esc(g.title)}${br?` <span class="tag">Rama ${br}</span>`:''}</summary><ul>${g.steps.map(s=>`<li>${esc(s)}</li>`).join('')}</ul><p><b>Esta noche:</b> ${esc(g.night)}</p><p class="mut"><b>Esperado:</b> ${esc(g.expect)}</p></details>`; };
-  return `<div class="card"><h2>📖 El programa completo</h2><p class="mut">Enfoque escalonado: dos semanas sin llanto en solitario, punto de control el día 14 y después vosotros decidís cómo seguir.</p></div>` +
+  return `<div class="card"><h2>📖 El programa completo</h2><p class="mut">Enfoque escalonado y centrado en la noche: primero se despega poco a poco del pecho al dormirse, luego dos semanas acompañada en la cuna, punto de control el día 14 y después vosotros decidís cómo seguir.</p></div>` +
     weeks.map(([a,b,t]) => { let inner = '';
       for (let n=a; n<=b; n++) inner += (n>=15&&n<=21) ? (S.branch!=='B'?dayHtml(n,'A'):'') + (S.branch!=='A'?dayHtml(n,'B'):'') : dayHtml(n, S.branch);
       return `<div class="card"><h2>${t}</h2>${inner}</div>`; }).join('') + `<div class="card">${(()=>{const g=getDay(36);return `<h2>Después: ${g.title}</h2><ul>${g.steps.map(s=>`<li>${esc(s)}</li>`).join('')}</ul>`})()}</div>`;
@@ -415,6 +425,7 @@ function vCfg(){
 
 function napCalc(){
   const t = $('#nc-t'), w = $('#nc-w'), out = $('#nc-out');
+  if (!t) return; // pantalla inicial
   const upd = () => { const m = toMin(t.value); if (m===null) return out.textContent=''; const [a,b] = w.value.split(',').map(Number); out.innerHTML = `Próximo sueño entre <b>${fromMin(m+a)}</b> y <b>${fromMin(m+b)}</b>`; };
   t.oninput = w.onchange = upd; upd();
 }
@@ -430,7 +441,7 @@ document.addEventListener('click', e => {
   else if (a === 'repeat') { const d = programDay(S, t); S.offset = (S.offset||0) + (d - 8); S.repeats++; }
   else if (a === 'savelog') {
     const date = val('#l-date'); if (!date) return alert('Elegid la fecha.');
-    const keys = ['bed','latency','how','wakings','feeds','morning','crying','naps','napsCrib','notes'];
+    const keys = ['bed','latency','how','wakings','feeds','morning','crying','naps','notes'];
     S.logs[date] = Object.fromEntries(keys.map(k => [k, val('#l-'+k)]).filter(([,v]) => v !== ''));
     window._logDate = null; save(); tab = 'hoy'; return render();
   }
